@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkillCraft Technology — Stopwatch</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ============================================================
+       CSS CUSTOM PROPERTIES — Dark / Light Theme
+       ============================================================ */
+    :root[data-theme="dark"] {
+      --bg-body:        #080c14;
+      --bg-card:        #0d1321;
+      --bg-glass:       rgba(255,255,255,0.04);
+      --border:         rgba(0,212,255,0.18);
+      --accent:         #00d4ff;
+      --accent-glow:    rgba(0,212,255,0.35);
+      --accent2:        #ff6b35;
+      --accent2-glow:   rgba(255,107,53,0.35);
+      --text-primary:   #e8f4f8;
+      --text-secondary: #7b9aad;
+      --text-dim:       #3d5a6e;
+      --lap-best:       #00ff9d;
+      --lap-worst:      #ff4757;
+      --lap-normal:     #e8f4f8;
+      --scrollbar:      rgba(0,212,255,0.2);
+      --toggle-bg:      rgba(0,212,255,0.12);
+    }
+
+    :root[data-theme="light"] {
+      --bg-body:        #f0f4f8;
+      --bg-card:        #ffffff;
+      --bg-glass:       rgba(0,0,0,0.04);
+      --border:         rgba(0,100,180,0.2);
+      --accent:         #0070cc;
+      --accent-glow:    rgba(0,112,204,0.25);
+      --accent2:        #e85d1a;
+      --accent2-glow:   rgba(232,93,26,0.25);
+      --text-primary:   #0d1321;
+      --text-secondary: #4a6580;
+      --text-dim:       #a0b8cc;
+      --lap-best:       #00913a;
+      --lap-worst:      #cc1c2b;
+      --lap-normal:     #0d1321;
+      --scrollbar:      rgba(0,112,204,0.2);
+      --toggle-bg:      rgba(0,112,204,0.1);
+    }
+
+    /* ============================================================
+       RESET & BASE
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Rajdhani', sans-serif;
+      background: var(--bg-body);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 24px 16px 48px;
+      transition: background 0.4s, color 0.4s;
+      overflow-x: hidden;
+    }
+
+    /* Ambient background orbs */
+    body::before, body::after {
+      content: '';
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      z-index: 0;
+      pointer-events: none;
+    }
+    body::before {
+      width: 500px; height: 500px;
+      background: var(--accent-glow);
+      top: -150px; left: -150px;
+      opacity: 0.4;
+    }
+    body::after {
+      width: 400px; height: 400px;
+      background: var(--accent2-glow);
+      bottom: -100px; right: -100px;
+      opacity: 0.35;
+    }
+
+    /* ============================================================
+       LAYOUT WRAPPER
+       ============================================================ */
+    .app-wrapper {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    /* ============================================================
+       HEADER
+       ============================================================ */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Animated logo mark */
+    .logo-mark {
+      width: 36px; height: 36px;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .logo-mark svg { width: 100%; height: 100%; }
+    .logo-ring {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 2.5;
+      stroke-dasharray: 88;
+      stroke-dashoffset: 0;
+      animation: spin-ring 4s linear infinite;
+      transform-origin: 50% 50%;
+    }
+    @keyframes spin-ring { to { stroke-dashoffset: -88; } }
+
+    .brand-name {
+      font-family: 'Orbitron', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--text-secondary);
+      line-height: 1.2;
+    }
+    .brand-name span {
+      display: block;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 0.2em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+    }
+
+    /* Dark / Light toggle */
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--toggle-bg);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      user-select: none;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.05em;
+    }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+    .toggle-icon { font-size: 15px; transition: transform 0.4s; }
+    .theme-toggle:hover .toggle-icon { transform: rotate(30deg); }
+
+    /* ============================================================
+       MAIN CARD
+       ============================================================ */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 40px 36px 32px;
+      box-shadow: 0 0 60px var(--accent-glow), 0 30px 60px rgba(0,0,0,0.3);
+      transition: background 0.4s, border-color 0.4s, box-shadow 0.4s;
+    }
+
+    /* ============================================================
+       TIME DISPLAY
+       ============================================================ */
+    .display-section {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    /* Decorative scan line */
+    .scan-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .scan-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 3px,
+        rgba(0,0,0,0.06) 3px,
+        rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+      border-radius: 8px;
+    }
+
+    /* Main time digits */
+    #time-display {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(38px, 9vw, 68px);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      color: var(--text-primary);
+      line-height: 1;
+      text-shadow: 0 0 30px var(--accent-glow), 0 0 8px var(--accent-glow);
+      transition: text-shadow 0.4s;
+      white-space: nowrap;
+    }
+
+    /* Milliseconds styled separately */
+    #time-display .ms-part {
+      font-size: 0.55em;
+      color: var(--accent);
+      opacity: 0.85;
+    }
+
+    /* Status indicator */
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .status-dot.running {
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulse-dot 1s ease-in-out infinite;
+    }
+    .status-dot.paused { background: var(--accent2); }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+    .status-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      transition: color 0.3s;
+    }
+    .status-label.running { color: var(--accent); }
+    .status-label.paused  { color: var(--accent2); }
+
+    /* ============================================================
+       BUTTONS
+       ============================================================ */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+
+    /* Base button style */
+    .btn {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 22px;
+      cursor: pointer;
+      background: var(--bg-glass);
+      color: var(--text-secondary);
+      transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1);
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Ripple pseudo-element */
+    .btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.18) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .btn:active::before { opacity: 1; }
+    .btn:active { transform: scale(0.94); }
+
+    /* Start button */
+    .btn-start {
+      background: linear-gradient(135deg, rgba(0,212,255,0.18), rgba(0,212,255,0.08));
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 20px rgba(0,212,255,0.15);
+      min-width: 110px;
+    }
+    .btn-start:hover:not(:disabled) {
+      background: var(--accent);
+      color: #000;
+      box-shadow: 0 0 30px var(--accent-glow), 0 6px 20px rgba(0,212,255,0.3);
+      transform: translateY(-2px) scale(1.04);
+    }
+
+    /* Pause button */
+    .btn-pause {
+      background: linear-gradient(135deg, rgba(255,107,53,0.18), rgba(255,107,53,0.08));
+      border-color: var(--accent2);
+      color: var(--accent2);
+      box-shadow: 0 0 20px rgba(255,107,53,0.15);
+      min-width: 110px;
+    }
+    .btn-pause:hover:not(:disabled) {
+      background: var(--accent2);
+      color: #fff;
+      box-shadow: 0 0 30px var(--accent2-glow), 0 6px 20px rgba(255,107,53,0.3);
+      transform: translateY(-2px) scale(1.04);
+    }
+
+    /* Lap button */
+    .btn-lap {
+      background: linear-gradient(135deg, rgba(0,255,157,0.1), rgba(0,255,157,0.04));
+      border-color: rgba(0,255,157,0.4);
+      color: var(--lap-best);
+    }
+    .btn-lap:hover:not(:disabled) {
+      background: rgba(0,255,157,0.18);
+      border-color: var(--lap-best);
+      box-shadow: 0 0 20px rgba(0,255,157,0.2);
+      transform: translateY(-2px) scale(1.04);
+    }
+
+    /* Reset button */
+    .btn-reset {
+      background: var(--bg-glass);
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
+    .btn-reset:hover:not(:disabled) {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+      transform: translateY(-2px);
+    }
+
+    /* Clear Laps button */
+    .btn-clear {
+      background: var(--bg-glass);
+      border-color: var(--border);
+      color: var(--text-dim);
+      font-size: 10px;
+    }
+    .btn-clear:hover:not(:disabled) {
+      border-color: var(--lap-worst);
+      color: var(--lap-worst);
+    }
+
+    /* Disabled state */
+    .btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    /* ============================================================
+       KEYBOARD SHORTCUT HINT
+       ============================================================ */
+    .shortcuts {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+    .shortcut {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.05em;
+    }
+    kbd {
+      font-family: 'Orbitron', monospace;
+      font-size: 9px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 5px;
+      background: var(--bg-glass);
+      color: var(--text-secondary);
+    }
+
+    /* ============================================================
+       DIVIDER
+       ============================================================ */
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0 -36px 28px;
+    }
+
+    /* ============================================================
+       LAP SECTION
+       ============================================================ */
+    .laps-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .laps-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+    .laps-count {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      color: var(--accent);
+      background: rgba(0,212,255,0.1);
+      border: 1px solid rgba(0,212,255,0.2);
+      border-radius: 20px;
+      padding: 2px 10px;
+      min-width: 28px;
+      text-align: center;
+    }
+
+    /* Lap list */
+    #lap-list {
+      list-style: none;
+      max-height: 280px;
+      overflow-y: auto;
+      padding-right: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* Scrollbar */
+    #lap-list::-webkit-scrollbar { width: 4px; }
+    #lap-list::-webkit-scrollbar-track { background: transparent; }
+    #lap-list::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 32px 0;
+      color: var(--text-dim);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+    }
+    .empty-state .empty-icon { font-size: 28px; display: block; margin-bottom: 8px; opacity: 0.4; }
+
+    /* Lap item */
+    .lap-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      animation: lap-slide-in 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    @keyframes lap-slide-in {
+      from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .lap-item:hover { background: rgba(255,255,255,0.06); }
+
+    /* Best lap */
+    .lap-item.best {
+      border-color: rgba(0,255,157,0.4);
+      background: rgba(0,255,157,0.05);
+    }
+    /* Worst lap */
+    .lap-item.worst {
+      border-color: rgba(255,71,87,0.35);
+      background: rgba(255,71,87,0.04);
+    }
+
+    .lap-meta { display: flex; align-items: center; gap: 10px; }
+
+    .lap-num {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-dim);
+      min-width: 36px;
+    }
+
+    .lap-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .badge-best  { background: rgba(0,255,157,0.15); color: var(--lap-best);  border: 1px solid rgba(0,255,157,0.3); }
+    .badge-worst { background: rgba(255,71,87,0.15);  color: var(--lap-worst); border: 1px solid rgba(255,71,87,0.3);  }
+
+    .lap-time {
+      font-family: 'Orbitron', monospace;
+      font-size: clamp(13px, 3vw, 15px);
+      font-weight: 700;
+      color: var(--lap-normal);
+      letter-spacing: 0.04em;
+    }
+    .lap-item.best  .lap-time { color: var(--lap-best); }
+    .lap-item.worst .lap-time { color: var(--lap-worst); }
+
+    /* ============================================================
+       FOOTER
+       ============================================================ */
+    footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    footer strong { color: var(--text-secondary); }
+
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
+    @media (max-width: 480px) {
+      .card { padding: 28px 20px 24px; border-radius: 18px; }
+      .divider { margin: 0 -20px 24px; }
+      .btn { padding: 12px 16px; font-size: 10px; }
+      .btn-row { gap: 8px; }
+      #time-display { letter-spacing: 0.02em; }
+      .shortcuts { gap: 10px; }
+    }
+    @media (max-width: 360px) {
+      body { padding: 16px 12px 40px; }
+      .btn-row { gap: 6px; }
+      .btn { padding: 11px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-wrapper">
+
+  <!-- ============================================================
+       HEADER
+       ============================================================ -->
+  <header>
+    <div class="brand">
+      <!-- Animated SVG logo mark -->
+      <div class="logo-mark" aria-hidden="true">
+        <svg viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+          <circle class="logo-ring" cx="18" cy="18" r="14" />
+          <circle fill="var(--accent)" cx="18" cy="4" r="2.2"/>
+          <line stroke="var(--accent)" stroke-width="2" stroke-linecap="round" x1="18" y1="18" x2="18" y2="10"/>
+          <line stroke="var(--text-secondary)" stroke-width="1.5" stroke-linecap="round" x1="18" y1="18" x2="24" y2="20"/>
+          <circle fill="var(--accent)" cx="18" cy="18" r="2"/>
+        </svg>
+      </div>
+      <div class="brand-name">
+        SkillCraft
+        <span>Technology</span>
+      </div>
+    </div>
+
+    <!-- Theme toggle button -->
+    <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Toggle dark/light mode">
+      <span class="toggle-icon" id="theme-icon">🌙</span>
+      <span id="theme-label">Dark</span>
+    </button>
+  </header>
+
+  <!-- ============================================================
+       MAIN CARD
+       ============================================================ -->
+  <main class="card" role="main">
+
+    <!-- Time Display -->
+    <section class="display-section" aria-label="Stopwatch display">
+      <div class="scan-wrap">
+        <!-- Time rendered as: HH:MM:SS<span class="ms-part">.ms</span> -->
+        <div id="time-display" aria-live="off" aria-atomic="true">
+          00:00:00<span class="ms-part">.00</span>
+        </div>
+      </div>
+
+      <!-- Running / Paused / Idle status -->
+      <div class="status-row" aria-live="polite" aria-atomic="true">
+        <div class="status-dot" id="status-dot"></div>
+        <span class="status-label" id="status-label">READY</span>
+      </div>
+    </section>
+
+    <!-- Control Buttons Row -->
+    <div class="btn-row" role="group" aria-label="Stopwatch controls">
+      <button class="btn btn-start"  id="btn-start"  aria-label="Start stopwatch">START</button>
+      <button class="btn btn-pause"  id="btn-pause"  aria-label="Pause stopwatch" disabled>PAUSE</button>
+      <button class="btn btn-lap"    id="btn-lap"    aria-label="Record lap"       disabled>LAP</button>
+      <button class="btn btn-reset"  id="btn-reset"  aria-label="Reset stopwatch"  disabled>RESET</button>
+    </div>
+
+    <!-- Keyboard Shortcut Hints -->
+    <div class="shortcuts" aria-label="Keyboard shortcuts">
+      <div class="shortcut"><kbd>Space</kbd> Start / Pause</div>
+      <div class="shortcut"><kbd>L</kbd> Lap</div>
+      <div class="shortcut"><kbd>R</kbd> Reset</div>
+    </div>
+
+    <div class="divider" role="separator"></div>
+
+    <!-- Laps Section -->
+    <section aria-label="Lap times">
+      <div class="laps-header">
+        <span class="laps-title">Lap Times</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="laps-count" id="laps-count">0</span>
+          <button class="btn btn-clear" id="btn-clear" disabled aria-label="Clear all laps">CLEAR</button>
+        </div>
+      </div>
+
+      <!-- Lap list — most recent at top -->
+      <ul id="lap-list" aria-live="polite" aria-relevant="additions removals">
+        <li class="empty-state" id="empty-state">
+          <span class="empty-icon">⏱</span>
+          No laps recorded yet
+        </li>
+      </ul>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <strong>SkillCraft Technology</strong> &nbsp;·&nbsp; Stopwatch v1.0
+  </footer>
+
+</div><!-- /.app-wrapper -->
+
+
+<script>
+  /* ============================================================
+     STOPWATCH — Core Logic
+     ============================================================
+     We use performance.now() for accurate elapsed time tracking.
+     This avoids drift caused by setInterval/setTimeout skewing.
+
+     State variables:
+       startTime    — timestamp (ms) when the stopwatch was (last) started
+       elapsed      — total accumulated ms when paused
+       rafId        — requestAnimationFrame handle
+       running      — boolean flag
+       laps         — array of {lapNum, lapMs, totalMs}
+  ============================================================ */
+
+  /* --- DOM refs --- */
+  const timeDisplay = document.getElementById('time-display');
+  const statusDot   = document.getElementById('status-dot');
+  const statusLabel = document.getElementById('status-label');
+  const lapList     = document.getElementById('lap-list');
+  const lapsCount   = document.getElementById('laps-count');
+  const emptyState  = document.getElementById('empty-state');
+
+  const btnStart = document.getElementById('btn-start');
+  const btnPause = document.getElementById('btn-pause');
+  const btnLap   = document.getElementById('btn-lap');
+  const btnReset = document.getElementById('btn-reset');
+  const btnClear = document.getElementById('btn-clear');
+
+  /* --- Stopwatch state --- */
+  let startTime = 0;      // performance.now() snapshot at last start
+  let elapsed   = 0;      // accumulated ms before current run
+  let rafId     = null;   // requestAnimationFrame ID
+  let running   = false;
+  let laps      = [];     // lap records
+  let lapStartMs = 0;     // elapsed ms when last lap was recorded
+
+  /* ============================================================
+     TIME FORMATTING — HH:MM:SS.MS
+     ============================================================
+     Converts total milliseconds into display segments.
+  ============================================================ */
+  function formatTime(ms) {
+    const totalSeconds = Math.floor(ms / 10) / 100;        // hundredths precision
+    const hours   = Math.floor(ms / 3_600_000);
+    const minutes = Math.floor((ms % 3_600_000) / 60_000);
+    const seconds = Math.floor((ms % 60_000) / 1_000);
+    const centis  = Math.floor((ms % 1_000) / 10);         // centiseconds (2 digits)
+
+    return {
+      main: `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`,
+      ms:   pad(centis)
+    };
+  }
+
+  function pad(n) { return String(n).padStart(2, '0'); }
+
+  /* ============================================================
+     RENDER LOOP — requestAnimationFrame
+     ============================================================
+     Each frame: compute elapsed = stored + (now - startTime),
+     then update the DOM display. This avoids timer drift.
+  ============================================================ */
+  function tick() {
+    const now = performance.now();
+    const totalMs = elapsed + (now - startTime);
+    renderTime(totalMs);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function renderTime(ms) {
+    const { main, ms: centis } = formatTime(ms);
+    timeDisplay.innerHTML = `${main}<span class="ms-part">.${centis}</span>`;
+  }
+
+  /* ============================================================
+     START — Begin or resume timing
+  ============================================================ */
+  function startWatch() {
+    if (running) return;
+    running   = true;
+    startTime = performance.now();
+    rafId     = requestAnimationFrame(tick);
+    updateStatus('running');
+    updateButtons();
+  }
+
+  /* ============================================================
+     PAUSE — Freeze time; accumulate elapsed
+  ============================================================ */
+  function pauseWatch() {
+    if (!running) return;
+    running = false;
+    cancelAnimationFrame(rafId);
+    elapsed += performance.now() - startTime;  // bank the elapsed time
+    updateStatus('paused');
+    updateButtons();
+  }
+
+  /* ============================================================
+     RESET — Clear everything back to zero
+  ============================================================ */
+  function resetWatch() {
+    running = false;
+    cancelAnimationFrame(rafId);
+    elapsed    = 0;
+    startTime  = 0;
+    lapStartMs = 0;
+    renderTime(0);
+    updateStatus('idle');
+    updateButtons();
+  }
+
+  /* ============================================================
+     LAP — Snapshot the current interval time
+     ============================================================
+     Lap interval = currentElapsed − lapStartMs.
+     Most recent lap is prepended to the top of the list.
+  ============================================================ */
+  function recordLap() {
+    if (!running) return;
+
+    const now       = performance.now();
+    const totalMs   = elapsed + (now - startTime);
+    const lapMs     = totalMs - lapStartMs;
+
+    lapStartMs = totalMs;   // reset lap start reference
+
+    const lapRecord = {
+      num:     laps.length + 1,
+      lapMs,
+      totalMs
+    };
+    laps.unshift(lapRecord);   // prepend → newest on top
+
+    rebuildLapList();
+    lapsCount.textContent = laps.length;
+    btnClear.disabled = false;
+  }
+
+  /* ============================================================
+     CLEAR LAPS — Remove all recorded laps
+  ============================================================ */
+  function clearLaps() {
+    laps = [];
+    lapStartMs = elapsed + (running ? (performance.now() - startTime) : 0);
+    rebuildLapList();
+    lapsCount.textContent = 0;
+    btnClear.disabled = true;
+  }
+
+  /* ============================================================
+     BUILD LAP LIST DOM
+     ============================================================
+     Identifies best (fastest) and worst (slowest) lap
+     intervals and applies highlight classes.
+  ============================================================ */
+  function rebuildLapList() {
+    // Show/hide empty state
+    emptyState.style.display = laps.length === 0 ? '' : 'none';
+
+    // Remove existing lap items (keep empty-state node)
+    const existing = lapList.querySelectorAll('.lap-item');
+    existing.forEach(el => el.remove());
+
+    if (laps.length === 0) return;
+
+    // Find best and worst by lap interval (ms)
+    const minMs = Math.min(...laps.map(l => l.lapMs));
+    const maxMs = Math.max(...laps.map(l => l.lapMs));
+
+    laps.forEach((lap, idx) => {
+      const isBest  = laps.length > 1 && lap.lapMs === minMs;
+      const isWorst = laps.length > 1 && lap.lapMs === maxMs;
+
+      const { main: lapMain, ms: lapCentis }     = formatTime(lap.lapMs);
+      const li = document.createElement('li');
+      li.className = `lap-item${isBest ? ' best' : isWorst ? ' worst' : ''}`;
+
+      /* badge markup */
+      let badge = '';
+      if (isBest)  badge = '<span class="lap-badge badge-best">Best</span>';
+      if (isWorst) badge = '<span class="lap-badge badge-worst">Slow</span>';
+
+      li.innerHTML = `
+        <div class="lap-meta">
+          <span class="lap-num">LAP ${pad(lap.num)}</span>
+          ${badge}
+        </div>
+        <span class="lap-time">${lapMain}<span style="opacity:.7;font-size:.75em">.${lapCentis}</span></span>
+      `;
+
+      /* Only animate the newest lap (index 0 = most recently added) */
+      if (idx === 0) {
+        li.style.animationDuration = '0.35s';
+      } else {
+        li.style.animation = 'none';
+      }
+
+      lapList.appendChild(li);
+    });
+  }
+
+  /* ============================================================
+     STATUS INDICATOR UPDATE
+  ============================================================ */
+  function updateStatus(state) {
+    statusDot.className   = `status-dot ${state === 'idle' ? '' : state}`;
+    statusLabel.className = `status-label ${state === 'idle' ? '' : state}`;
+    const labels = { idle: 'READY', running: 'RUNNING', paused: 'PAUSED' };
+    statusLabel.textContent = labels[state] || 'READY';
+  }
+
+  /* ============================================================
+     BUTTON STATE MANAGEMENT
+     ============================================================
+     Enforces which buttons are active based on stopwatch state.
+  ============================================================ */
+  function updateButtons() {
+    const hasTime = elapsed > 0 || running;
+
+    btnStart.disabled = running;
+    btnPause.disabled = !running;
+    btnLap.disabled   = !running;
+    btnReset.disabled = !hasTime && !running;
+  }
+
+  /* ============================================================
+     EVENT LISTENERS — Button clicks
+  ============================================================ */
+  btnStart.addEventListener('click', startWatch);
+  btnPause.addEventListener('click', pauseWatch);
+  btnLap.addEventListener('click',   recordLap);
+  btnReset.addEventListener('click', resetWatch);
+  btnClear.addEventListener('click', clearLaps);
+
+  /* ============================================================
+     KEYBOARD SHORTCUTS
+     ============================================================
+     Space → Start / Pause
+     L     → Lap
+     R     → Reset
+  ============================================================ */
+  document.addEventListener('keydown', e => {
+    // Don't fire if focus is inside a button (accessibility)
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+    switch (e.code) {
+      case 'Space':
+        e.preventDefault();
+        running ? pauseWatch() : startWatch();
+        break;
+      case 'KeyL':
+        if (!btnLap.disabled) recordLap();
+        break;
+      case 'KeyR':
+        if (!btnReset.disabled) resetWatch();
+        break;
+    }
+  });
+
+  /* ============================================================
+     DARK / LIGHT THEME TOGGLE
+  ============================================================ */
+  const themeToggle = document.getElementById('theme-toggle');
+  const themeIcon   = document.getElementById('theme-icon');
+  const themeLabel  = document.getElementById('theme-label');
+
+  themeToggle.addEventListener('click', () => {
+    const html    = document.documentElement;
+    const isDark  = html.getAttribute('data-theme') === 'dark';
+    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    themeIcon.textContent  = isDark ? '☀️' : '🌙';
+    themeLabel.textContent = isDark ? 'Light' : 'Dark';
+  });
+
+  /* ============================================================
+     INITIAL STATE — set up empty UI
+  ============================================================ */
+  rebuildLapList();
+  updateButtons();
+  updateStatus('idle');
+</script>
+
+</body>
+</html>
